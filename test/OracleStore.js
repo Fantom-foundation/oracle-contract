@@ -5,10 +5,13 @@ const { expect } = require('chai');
 
 const OracleStore = artifacts.require('OracleStore');
 
-contract('price store tests', async () => {
+contract('price store tests', async (acc1, acc2) => {
+    beforeEach(async () => {
+        this.oraclestore = await OracleStore.new([acc1, acc2]);
+    });
+
     it('checking get price', async () => {
-        this.oraclestore = await OracleStore.new();
-        expect(await this.oraclestore.getPrice.call("0xA7437C148C782D260B929140262a8E873e7F7Ff4")).to.be.bignumber.equal(new BN('0'));
+        await this.oraclestore.getPairPrice("asd", "asb");
     });
 
     it('checking set price', async () => {

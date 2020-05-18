@@ -1,6 +1,6 @@
-pragma solidity 0.5.0;
+pragma solidity ^0.5.0;
 
-import "./OracleConstants.sol"
+import "./OracleConstants.sol";
 
 contract OracleStore is OracleConstants {
   uint256 pricesRequestedAt;
@@ -13,12 +13,12 @@ contract OracleStore is OracleConstants {
   mapping(string => mapping(string => uint256)) votesForNewPrices;
   mapping(string => mapping(string => uint256)) pricesExpireDate; // symb1 => symb2 => timestamp
   mapping(string => mapping(string => uint256)) tokenPairs;
-  mapping(uint256 => mapping(address => mapping(string => mapping(string => uint256)))) proposedPrices; // timestamp => oracleValidator => token1Symb => token2Symb => price
+  mapping(address => mapping(string => mapping(string => uint256))) proposedPrices; // timestamp => oracleValidator => token1Symb => token2Symb => price
 
   event UpdateAllPrices(uint256 timestamp);
   event UpdatePriceForPair(string symb1, string symb2);
 
-  constructor(address[] _oracleValidators) public {
+  constructor(address[] memory _oracleValidators) public {
     oracleValidators = _oracleValidators;
     for (uint256 i = 0; i < oracleValidators.length; i++) {
       validatorIdx[oracleValidators[i]] = i;
@@ -30,11 +30,11 @@ contract OracleStore is OracleConstants {
     if (oracleValidators[idx] == msg.sender) _;
   }
 
-  function requestPriceUpdate() public pure {
-    emit UpdateAllPrices();
+  function requestPriceUpdate() public {
+    emit UpdateAllPrices(block.timestamp);
   }
 
-  function requestPairUpdate(string memory symb1, string memory symb2) public pure {
+  function requestPairUpdate(string memory symb1, string memory symb2) public {
     emit UpdatePriceForPair(symb1, symb2);
   }
 
@@ -54,8 +54,8 @@ contract OracleStore is OracleConstants {
 
   // return price for a provedid token symb
   function getPrice(string memory symb) public returns (uint256) {
-    uint256 price = tokenPairs[symb][defaultSymb];
-    require(pricesAreRelevant(symb1, defaultSymb), "price for a token expired");
+    uint256 price = tokenPairs[symb][defaultSymb()];
+    require(pricesAreRelevant(symb, defaultSymb()), "price for a token expired");
     require(price != 0, "price for a token is not set");
 
     return price;
@@ -71,7 +71,7 @@ contract OracleStore is OracleConstants {
 
   function setPriceForPair(string memory symb1, string memory symb2, uint256 price) internal {
     tokenPairs[symb1][symb2] = price;
-    pricesExpireDate[symb1][symb2] = block.timestamp + pricesExpirePeriod;
+    pricesExpireDate[symb1][symb2] = block.timestamp + pricesExpirePeriod();
   }
 
   function setLiquidity(address _token, uint256 _liquidity) public restricted {
