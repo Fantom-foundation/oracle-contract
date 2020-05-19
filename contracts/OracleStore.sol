@@ -4,15 +4,15 @@ import "./OracleConstants.sol";
 
 contract OracleStore is OracleConstants {
   uint256 pricesRequestedAt;
-  address[] oracleValidators;
+  address[] public oracleValidators;
   string[] tokenSymbs;
 
   mapping(string => uint256) tokenSymbIdx;
   mapping(address => uint256) validatorIdx;
   mapping(address => uint256) _liquidityStore;
-  mapping(string => mapping(string => uint256)) votesForNewPrices;
-  mapping(string => mapping(string => uint256)) pricesExpireDate; // symb1 => symb2 => timestamp
-  mapping(string => mapping(string => uint256)) tokenPairs;
+  mapping(string => mapping(string => uint256)) public votesForNewPrices;
+  mapping(string => mapping(string => uint256)) public pricesExpireDate; // symb1 => symb2 => timestamp
+  mapping(string => mapping(string => uint256)) public tokenPairs;
   mapping(address => mapping(string => mapping(string => uint256))) proposedPrices; // timestamp => oracleValidator => token1Symb => token2Symb => price
 
   event UpdateAllPrices(uint256 timestamp);
@@ -25,9 +25,8 @@ contract OracleStore is OracleConstants {
     }
   }
 
-  modifier restricted() {
-    uint256 idx = validatorIdx[msg.sender];
-    if (oracleValidators[idx] == msg.sender) _;
+  function oracleValidatorsLength() public view returns(uint256) {
+    return oracleValidators.length;
   }
 
   function requestPriceUpdate() public {
@@ -38,17 +37,25 @@ contract OracleStore is OracleConstants {
     emit UpdatePriceForPair(symb1, symb2);
   }
 
-  function proposePriceForPair(string memory symb1, string memory symb2, uint256 price) public restricted {
-    proposedPrices[msg.sender][symb1][symb2] = price;
-    uint256 validatorsVoted = votesForNewPrices[symb1][symb2];
+  function proposePriceForPair(string memory symb1, string memory symb2, uint256 price) public {
 
-    if (validatorsVoted == oracleValidators.length) {
+    uint256 idx = validatorIdx[msg.sender];
+    require(oracleValidators[idx] == msg.sender, "sender is not validator");
+
+    proposedPrices[msg.sender][symb1][symb2] = price;
+    votesForNewPrices[symb1][symb2] += 1;
+
+    if (votesForNewPrices[symb1][symb2] == oracleValidators.length) {
       for (uint256 i = 0; i < oracleValidators.length; i++) {
         address oracleValidator = oracleValidators[i];
         require(proposedPrices[oracleValidator][symb1][symb2] == price, "prices diverge. data provided by oracles is not consistant");
+
+        // if data is provided correctly - erase it
+        proposedPrices[oracleValidator][symb1][symb2] = 0;
       }
 
       setPriceForPair(symb1, symb2, price);
+      votesForNewPrices[symb1][symb2] = 0;
     }
   }
 
@@ -56,15 +63,13 @@ contract OracleStore is OracleConstants {
   function getPrice(string memory symb) public returns (uint256) {
     uint256 price = tokenPairs[symb][defaultSymb()];
     require(pricesAreRelevant(symb, defaultSymb()), "price for a token expired");
-    require(price != 0, "price for a token is not set");
 
     return price;
   }
 
-  function getPairPrice(string memory symb1, string memory symb2) public returns (uint256) {
+  function getPairPrice(string memory symb1, string memory symb2) public view returns (uint256) { //view
     uint256 price = tokenPairs[symb1][symb2];
     require(pricesAreRelevant(symb1, symb2), "price for a token expired");
-    require(price != 0, "price for a token is not set");
 
     return price;
   }
@@ -74,7 +79,7 @@ contract OracleStore is OracleConstants {
     pricesExpireDate[symb1][symb2] = block.timestamp + pricesExpirePeriod();
   }
 
-  function setLiquidity(address _token, uint256 _liquidity) public restricted {
+  function setLiquidity(address _token, uint256 _liquidity) public {
     _liquidityStore[_token] = _liquidity;
   }
 
@@ -83,7 +88,7 @@ contract OracleStore is OracleConstants {
   }
 
   // returns false if prices expired
-  function pricesAreRelevant(string memory symb1, string memory symb2) public returns (bool) {
+  function pricesAreRelevant(string memory symb1, string memory symb2) public view returns (bool) {
     return block.timestamp < pricesExpireDate[symb1][symb2] && pricesExpireDate[symb1][symb2] != 0;
   }
 }

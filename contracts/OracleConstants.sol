@@ -3,7 +3,7 @@ pragma solidity ^0.5.0;
 contract OracleConstants {
   // prices of a symb against default tokens
   string constant _defaultSymb = "BTC";
-  uint256 constant _pricesExpirePeriod = 100000; // transaction time + real expire period + lags
+  uint256 constant _pricesExpirePeriod = 1 hours; // transaction time + real expire period + lags
 
   function defaultSymb() public view returns (string memory) {
       return _defaultSymb;
